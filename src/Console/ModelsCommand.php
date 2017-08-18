@@ -14,6 +14,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Str;
 use Illuminate\Filesystem\Filesystem;
+use ReflectionMethod;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -465,38 +466,41 @@ class ModelsCommand extends Command
                         $search = '$this->' . $relation . '(';
                         if ($pos = stripos($code, $search)) {
                             //Resolve the relation's model to a Relation object.
-                            $relationObj = $model->$method();
+                            $reflectionMethod = new ReflectionMethod($model, $method);
+                            if (!$reflectionMethod->getParameters()) {
+                                $relationObj = $model->$method();
 
-                            if ($relationObj instanceof Relation) {
-                                $relatedModel = '\\' . get_class($relationObj->getRelated());
+                                if ($relationObj instanceof Relation) {
+                                    $relatedModel = '\\' . get_class($relationObj->getRelated());
 
-                                $relations = ['hasManyThrough', 'belongsToMany', 'hasMany', 'morphMany', 'morphToMany'];
-                                if (in_array($relation, $relations)) {
-                                    //Collection or array of models (because Collection is Arrayable)
-                                    $this->setProperty(
-                                        $method,
-                                        $this->getCollectionClass($relatedModel) . '|' . $relatedModel . '[]',
-                                        true,
-                                        null
-                                    );
-                                } elseif ($relation === "morphTo") {
-                                    // Model isn't specified because relation is polymorphic
-                                    $this->setProperty(
-                                        $method,
-                                        '\Illuminate\Database\Eloquent\Model|\Eloquent',
-                                        true,
-                                        null
-                                    );
-                                } else {
-                                    //Single model is returned
-                                    $this->setProperty(
-                                        $method,
-                                        $relatedModel,
-                                        true,
-                                        null,
-                                        '',
-                                        $this->isRelationForeignKeyNullable($relationObj)
-                                    );
+                                    $relations = ['hasManyThrough', 'belongsToMany', 'hasMany', 'morphMany', 'morphToMany'];
+                                    if (in_array($relation, $relations)) {
+                                        //Collection or array of models (because Collection is Arrayable)
+                                        $this->setProperty(
+                                            $method,
+                                            $this->getCollectionClass($relatedModel) . '|' . $relatedModel . '[]',
+                                            true,
+                                            null
+                                        );
+                                    } elseif ($relation === "morphTo") {
+                                        // Model isn't specified because relation is polymorphic
+                                        $this->setProperty(
+                                            $method,
+                                            '\Illuminate\Database\Eloquent\Model|\Eloquent',
+                                            true,
+                                            null
+                                        );
+                                    } else {
+                                        //Single model is returned
+                                        $this->setProperty(
+                                            $method,
+                                            $relatedModel,
+                                            true,
+                                            null,
+                                            '',
+                                            $this->isRelationForeignKeyNullable($relationObj)
+                                        );
+                                    }
                                 }
                             }
                         }
